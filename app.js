@@ -77,11 +77,11 @@ function pickVoice() {
   const v = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
   return v.find(x => /^sr/i.test(x.lang)) || v.find(x => /^(hr|bs)/i.test(x.lang)) || null;
 }
-function speak(text) {
+function speak(text, rate) {
   if (!window.speechSynthesis) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(toCyr(text));
-  const v = pickVoice(); u.lang = v ? v.lang : 'sr-RS'; if (v) u.voice = v; u.rate = 0.9;
+  const v = pickVoice(); u.lang = v ? v.lang : 'sr-RS'; if (v) u.voice = v; u.rate = rate || 0.9;
   speechSynthesis.speak(u);
 }
 if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {};
@@ -171,28 +171,30 @@ function ioView() {
 }
 
 // ---------- занятие ----------
-let Q = [], total = 0, done = 0, right = 0;
-function startSession(again) {
-  if (S.cards.length < 2) { return addView(); }
-  let pool = dueCards();
-  if (!pool.length) pool = S.cards;
-  pool = shuffle(pool).slice(0, 10);
-  Q = pool.map(c => ({ card: c, type: pickType(c), retry: false }));
+let Q = [], total = 0, done = 0, right = 0, recent = [];
+function startSession() {
+  if (S.cards.length < 2) return addView();
+  let pool = dueCards(); if (!pool.length) pool = S.cards;
+  pool = shuffle(pool).slice(0, 10); recent = [];
+  Q = pool.map(c => ({ card: c, type: pickType(c) }));
   total = Q.length; done = 0; right = 0;
+  if (S.cards.length >= 4 && total >= 4) Q.splice(Math.ceil(total / 2), 0, { match: true });
   next();
 }
 function pickType(c) {
-  const t = ['choice', 'choiceRev'];
-  if (c.box >= 1) t.push('type', 'listen');
-  if (c.box >= 2 && SR) t.push('speak');
+  let t = ['listenChooseRu', 'listenChooseSr', 'build', 'choice'];
+  if (SR) t.push('repeat', 'repeat');
+  if (c.box >= 1) { t.push('listenType', 'choiceRev', 'buildListen'); if (SR) t.push('speak', 'speak'); }
   if (c.box >= 2) t.push('type');
-  return t[Math.random() * t.length | 0];
+  let f = t.filter(x => !recent.includes(x)); if (!f.length) f = t;
+  const r = f[Math.random() * f.length | 0];
+  recent.push(r); if (recent.length > 2) recent.shift();
+  return r;
 }
 function bump(card, ok) {
   if (ok) { card.box = Math.min(card.box + 1, INTERVALS.length - 1); card.ok++; }
   else { card.box = Math.max(card.box - 1, 0); card.bad++; }
-  card.due = ok ? Date.now() + INTERVALS[card.box] * DAY : Date.now();
-  if (ok && card.box === 0) card.due = Date.now() + 5 * 6e4;
+  card.due = ok ? Date.now() + Math.max(INTERVALS[card.box], 0.003) * DAY : Date.now();
   S.today = (S.todayDay === dayStr() ? S.today : 0) + 1; S.todayDay = dayStr();
   save();
 }
@@ -206,54 +208,103 @@ function finish() {
     h('div', { class: 'card' }, h('div', { class: 'big' }, right + ' из ' + total + ' с первого раза'), h('div', null, 'Дней подряд: ' + S.streak)),
     h('button', { onclick: () => startSession() }, 'Ещё раз'), h('button', { class: 'sec', onclick: home }, 'На главный'));
 }
-function progress() { return h('div', { class: 'bar' }, h('i', { style: 'width:' + (done / total * 100) + '%' })); }
+const progress = () => h('div', { class: 'bar' }, h('i', { style: 'width:' + (done / total * 100) + '%' }));
+const listenBtns = c => h('div', { class: 'row' },
+  h('button', { class: 'sec', onclick: () => speak(c.sr) }, '🔊 Послушать'),
+  h('button', { class: 'sec', onclick: () => speak(c.sr, 0.55) }, '🐢 Медленно'));
+
 function next() {
   if (!Q.length) return finish();
-  const ex = Q.shift(), c = ex.card;
-  const others = shuffle(S.cards.filter(x => x !== c)).slice(0, 3);
+  const ex = Q.shift();
+  if (ex.match) return matchEx();
+  const c = ex.card, retry = !!ex.retry;
   let type = ex.type;
-  if ((type === 'choice' || type === 'choiceRev') && !others.length) type = 'type';
+  const others = shuffle(S.cards.filter(x => x !== c)).slice(0, 3);
+  if (/choose|choice/i.test(type) && !others.length) type = 'build';
+  const box = h('div', { class: 'card' });
+  let locked = false;
   const result = (ok, almost) => {
-    if (!ex.retry) { bump(c, ok); if (ok) right++; }
-    if (!ok) Q.push({ card: c, type: 'type', retry: true });
-    if (ok) done++; // полоска растёт только за верные ответы
-    const fb = h('div', { class: 'fb ' + (ok ? 'ok' : 'no') }, ok ? (almost ? '✓ Почти! Правильно: ' + c.sr : '✓ Верно!') : ['✗ Правильно: ', h('b', null, c.sr), ' — ' + c.ru]);
-    box.querySelectorAll('button,input').forEach(e => e.disabled = true);
-    box.append(fb, h('button', { onclick: () => next() }, 'Дальше'));
+    if (locked) return; locked = true;
+    if (!retry) { bump(c, ok); if (ok) right++; }
+    if (ok) done++; else Q.push({ card: c, type: Math.random() < 0.5 ? 'buildListen' : (SR ? 'speak' : 'listenType'), retry: true });
+    box.querySelectorAll('button,input').forEach(e => { if (!e.dataset.keep) e.disabled = true; });
+    box.append(
+      h('div', { class: 'fb ' + (ok ? 'ok' : 'no') }, ok ? (almost ? '✓ Почти! Правильно: ' + c.sr : '✓ Верно!') : ['✗ Правильно: ', h('b', null, c.sr), ' — ' + c.ru]),
+      c.em ? h('div', { class: 'emb' }, c.em) : null,
+      h('div', { class: 'mut' }, c.sr + ' — ' + c.ru),
+      h('button', { onclick: () => next() }, 'Дальше'));
     speak(c.sr);
   };
-  const box = h('div', { class: 'card' });
-  if (c.em) box.append(h('div', { class: 'emb' }, c.em));
-  const head = [progress()];
-  const optBtns = (correct, label, opts) => shuffle(opts).map(o => h('button', { class: 'opt', onclick: ev => { ev.target.style.borderColor = o === correct ? 'var(--ok)' : 'var(--bad)'; result(o === correct); } }, label(o)));
-  if (type === 'choice') {
-    box.append(h('div', { class: 'mut' }, 'Что значит по-русски?'), h('div', { class: 'big' }, c.sr, ' ', h('button', { class: 'small sec', onclick: () => speak(c.sr) }, '🔊')),
-      ...optBtns(c, x => x.ru, [c, ...others])); speak(c.sr);
-  } else if (type === 'choiceRev') {
-    box.append(h('div', { class: 'mut' }, 'Как сказать по-сербски?'), h('div', { class: 'big' }, c.ru),
-      ...optBtns(c, x => x.sr, [c, ...others]));
-  } else if (type === 'type' || type === 'listen') {
+  const emo = () => c.em ? h('div', { class: 'emb' }, c.em) : null;
+  const options = (correct, label, list) => shuffle(list).map(o => h('button', { class: 'opt', onclick: ev => { ev.currentTarget.style.borderColor = o === correct ? 'var(--ok)' : 'var(--bad)'; result(o === correct); } }, label(o)));
+  const typeInput = () => {
     const inp = h('input', { placeholder: 'Напиши по-сербски', autocapitalize: 'off', autocomplete: 'off' });
     const check = () => { const s = sim(inp.value, c.sr); result(s >= 0.85, s < 1 && s >= 0.85); };
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
-    if (type === 'type') box.append(h('div', { class: 'mut' }, 'Напиши по-сербски:'), h('div', { class: 'big' }, c.ru));
-    else { box.append(h('div', { class: 'mut' }, 'Послушай и напиши, что услышал:'), h('button', { class: 'sec', onclick: () => speak(c.sr) }, '🔊 Послушать')); speak(c.sr); }
-    box.append(inp, h('button', { onclick: check }, 'Проверить'));
     setTimeout(() => inp.focus(), 50);
+    return [inp, h('button', { onclick: check }, 'Проверить')];
+  };
+  const builder = () => {
+    const words = c.sr.split(/\s+/);
+    const extra = shuffle(others.flatMap(o => o.sr.split(/\s+/)).filter(w => !words.includes(w))).slice(0, 2);
+    const ans = h('div', { class: 'ans' }), bank = h('div', { class: 'chips' });
+    const chips = shuffle([...words, ...extra]).map(w => { const b = h('button', { class: 'chip' }, w); b.onclick = () => { if (locked) return; (b.parentNode === bank ? ans : bank).append(b); }; return b; });
+    bank.append(...chips);
+    const check = () => { const s = sim([...ans.children].map(x => x.textContent).join(' '), c.sr); result(s >= 0.95); };
+    return [ans, bank, h('button', { onclick: check }, 'Проверить')];
+  };
+  const speakBox = (label) => {
+    const st = h('div', { class: 'mut' }, 'Нажми и скажи вслух.');
+    const mic = h('button', { onclick: () => {
+      const r = new SR(); r.lang = 'sr-RS'; r.maxAlternatives = 3; st.textContent = '🎤 Слушаю…';
+      r.onresult = e => { let best = 0, said = ''; for (const a of e.results[0]) { const s = sim(a.transcript, c.sr); if (s >= best) { best = s; said = a.transcript; } }
+        st.textContent = 'Я услышал: ' + said; result(best >= 0.75, best < 1 && best >= 0.75); };
+      r.onerror = () => { st.textContent = 'Не расслышал. Нажми и скажи ещё раз.'; };
+      r.start();
+    } }, '🎤 ' + label);
+    const skip = h('button', { class: 'sec', 'data-keep': '1', onclick: () => { if (locked) return; Q.unshift({ card: c, type: 'buildListen', retry }); next(); } }, 'Не могу говорить — другое задание');
+    return [mic, st, skip];
+  };
+
+  if (type === 'listenChooseRu') {
+    box.append(h('div', { class: 'mut' }, '👂 Послушай. Что это значит?'), listenBtns(c), ...options(c, x => x.ru, [c, ...others])); speak(c.sr);
+  } else if (type === 'listenChooseSr') {
+    box.append(h('div', { class: 'mut' }, '👂 Послушай. Какая это фраза?'), listenBtns(c), ...options(c, x => x.sr, [c, ...others])); speak(c.sr);
+  } else if (type === 'listenType') {
+    box.append(h('div', { class: 'mut' }, '👂 Послушай и напиши по-сербски:'), listenBtns(c), ...typeInput()); speak(c.sr);
+  } else if (type === 'buildListen') {
+    box.append(h('div', { class: 'mut' }, '👂 Послушай и собери фразу из слов:'), listenBtns(c), ...builder()); speak(c.sr);
+  } else if (type === 'build') {
+    box.append(h('div', { class: 'mut' }, 'Собери фразу по-сербски:'), emo(), h('div', { class: 'big' }, c.ru), ...builder());
+  } else if (type === 'choice') {
+    box.append(h('div', { class: 'mut' }, 'Что значит по-русски?'), emo(), h('div', { class: 'big' }, c.sr), ...options(c, x => x.ru, [c, ...others]));
+  } else if (type === 'choiceRev') {
+    box.append(h('div', { class: 'mut' }, 'Как сказать по-сербски?'), emo(), h('div', { class: 'big' }, c.ru), ...options(c, x => x.sr, [c, ...others]));
+  } else if (type === 'type') {
+    box.append(h('div', { class: 'mut' }, 'Напиши по-сербски:'), emo(), h('div', { class: 'big' }, c.ru), ...typeInput());
+  } else if (type === 'repeat') {
+    box.append(h('div', { class: 'mut' }, '🗣️ Послушай и повтори вслух:'), h('div', { class: 'big' }, c.sr), listenBtns(c), ...speakBox('Повторить')); speak(c.sr);
   } else { // speak
-    const st = h('div', { class: 'mut' }, 'Нажми и произнеси вслух.');
-    box.append(h('div', { class: 'mut' }, 'Скажи по-сербски:'), h('div', { class: 'big' }, c.ru),
-      h('button', { onclick: () => {
-        const r = new SR(); r.lang = 'sr-RS'; r.maxAlternatives = 3;
-        st.textContent = '🎤 Слушаю…';
-        r.onresult = e => { let best = 0, said = ''; for (const a of e.results[0]) { const s = sim(a.transcript, c.sr); if (s >= best) { best = s; said = a.transcript; } }
-          st.textContent = 'Я услышал: ' + said; result(best >= 0.8, best < 1 && best >= 0.8); };
-        r.onerror = () => { st.textContent = 'Не расслышал. Попробуй ещё раз.'; };
-        r.start();
-      } }, '🎤 Говорить'), st,
-      h('button', { class: 'sec', onclick: () => { Q.push({ card: c, type: 'type', retry: ex.retry }); next(); } }, 'Не могу говорить — другое задание'));
+    box.append(h('div', { class: 'mut' }, '🗣️ Скажи по-сербски вслух:'), emo(), h('div', { class: 'big' }, c.ru), ...speakBox('Говорить'));
   }
-  show(...head, box, h('button', { class: 'sec', onclick: home }, 'Закончить'));
+  show(progress(), box, h('button', { class: 'sec', onclick: home }, 'Закончить'));
+}
+function matchEx() {
+  const cs = shuffle(S.cards).slice(0, 5);
+  const left = shuffle(cs), right_ = shuffle(cs);
+  let sel = null, left_n = cs.length;
+  const box = h('div', { class: 'card' }, h('div', { class: 'mut' }, 'Соедини пары (сначала сербская, потом русская):'));
+  const grid = h('div', { class: 'cols' }), colL = h('div'), colR = h('div');
+  const mk = (c, side) => { const b = h('button', { class: 'opt' }, side === 'l' ? c.sr : c.ru);
+    b.onclick = () => {
+      if (side === 'l') { colL.querySelectorAll('button').forEach(x => { if (!x.disabled) x.style.borderColor = ''; }); sel = { c, b }; b.style.borderColor = 'var(--pr)'; speak(c.sr); return; }
+      if (!sel) return;
+      if (sel.c === c) { sel.b.disabled = b.disabled = true; sel.b.style.borderColor = b.style.borderColor = 'var(--ok)'; sel = null; if (!--left_n) box.append(h('button', { onclick: () => next() }, 'Дальше')); }
+      else { b.style.borderColor = 'var(--bad)'; setTimeout(() => { if (!b.disabled) b.style.borderColor = ''; }, 500); }
+    }; return b; };
+  left.forEach(c => colL.append(mk(c, 'l'))); right_.forEach(c => colR.append(mk(c, 'r')));
+  grid.append(colL, colR); box.append(grid);
+  show(progress(), box, h('button', { class: 'sec', onclick: home }, 'Закончить'));
 }
 
 // фразы из общего файла phrases.json: добавляются сами; удалённые тобой не возвращаются

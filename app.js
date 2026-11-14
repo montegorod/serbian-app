@@ -100,37 +100,38 @@ function addView(editId) {
   const ed = typeof editId === 'string' ? S.cards.find(c => c.id === editId) : null;
   const sr = h('input', { placeholder: 'По-сербски (латиницей)', value: ed ? ed.sr : '', autocapitalize: 'off' });
   const ru = h('input', { placeholder: 'По-русски', value: ed ? ed.ru : '' });
+  const em = h('input', { placeholder: 'Эмодзи-картинка (не обязательно)', value: ed ? (ed.em || '') : '' });
   const msg = h('div', { class: 'mut' });
   const go = () => {
     const a = sr.value.trim(), b = ru.value.trim();
     if (!a || !b) { msg.textContent = 'Заполни оба поля.'; return; }
-    if (ed) { ed.sr = a; ed.ru = b; save(); return listView(); }
-    S.cards.push({ id: uid(), sr: a, ru: b, box: 0, due: 0, ok: 0, bad: 0 }); save();
-    sr.value = ''; ru.value = ''; msg.textContent = '✓ Добавлено (' + S.cards.length + ')'; sr.focus();
+    if (ed) { ed.sr = a; ed.ru = b; ed.em = em.value.trim(); save(); return listView(); }
+    S.cards.push({ id: uid(), sr: a, ru: b, em: em.value.trim(), box: 0, due: 0, ok: 0, bad: 0 }); save();
+    sr.value = ''; ru.value = ''; em.value = ''; msg.textContent = '✓ Добавлено (' + S.cards.length + ')'; sr.focus();
   };
   show(h('h1', null, ed ? 'Изменить фразу' : 'Новая фраза'),
-    h('div', { class: 'card' }, sr, ru, h('button', { onclick: go }, ed ? 'Сохранить' : 'Добавить'), msg),
+    h('div', { class: 'card' }, sr, ru, em, h('button', { onclick: go }, ed ? 'Сохранить' : 'Добавить'), msg),
     h('button', { class: 'sec', onclick: ed ? listView : home }, 'Назад'));
 }
 function listView() {
   const items = S.cards.length ? S.cards.map(c => h('div', { class: 'item' },
-    h('div', null, h('div', null, c.sr), h('div', { class: 'mut' }, c.ru)),
+    h('div', { class: 'em' }, c.em || ''), h('div', null, h('div', null, c.sr), h('div', { class: 'mut' }, c.ru)),
     h('button', { class: 'small sec', onclick: () => speak(c.sr) }, '🔊'),
     h('button', { class: 'small sec', onclick: () => addView(c.id) }, '✏️'),
     h('button', { class: 'small sec', onclick: () => { if (confirm('Удалить фразу?')) { S.cards = S.cards.filter(x => x !== c); save(); listView(); } } }, '🗑'))) : [h('div', { class: 'mut' }, 'Пока пусто.')];
   show(h('h1', null, 'Все фразы'), h('div', { class: 'card' }, items), h('button', { class: 'sec', onclick: home }, 'Назад'));
 }
 function ioView() {
-  const ta = h('textarea', { rows: 8, placeholder: 'Вставь строки: по-сербски | по-русски\nили копию (JSON)' });
-  const out = h('textarea', { rows: 5, readonly: 'readonly' }); out.value = JSON.stringify(S.cards.map(c => ({ sr: c.sr, ru: c.ru })));
+  const ta = h('textarea', { rows: 8, placeholder: 'Вставь строки: по-сербски | по-русски | эмодзи\nили копию (JSON)' });
+  const out = h('textarea', { rows: 5, readonly: 'readonly' }); out.value = JSON.stringify(S.cards.map(c => ({ sr: c.sr, ru: c.ru, em: c.em || '' })));
   const msg = h('div', { class: 'mut' });
   const imp = () => {
     let list = [];
     const t = ta.value.trim();
-    try { const j = JSON.parse(t); list = (Array.isArray(j) ? j : j.cards || []).map(x => [x.sr, x.ru]); }
+    try { const j = JSON.parse(t); list = (Array.isArray(j) ? j : j.cards || []).map(x => [x.sr, x.ru, x.em]); }
     catch (e) { list = t.split('\n').map(l => l.split('|').map(s => s.trim())).filter(p => p.length >= 2 && p[0] && p[1]); }
     let n = 0;
-    for (const [a, b] of list) if (a && b && !S.cards.some(c => norm(c.sr) === norm(a))) { S.cards.push({ id: uid(), sr: a, ru: b, box: 0, due: 0, ok: 0, bad: 0 }); n++; }
+    for (const [a, b, e] of list) { const old = S.cards.find(c => norm(c.sr) === norm(a)); if (old) { if (e && !old.em) { old.em = e; n++; } } else if (a && b) { S.cards.push({ id: uid(), sr: a, ru: b, em: e || '', box: 0, due: 0, ok: 0, bad: 0 }); n++; } }
     save(); msg.textContent = 'Добавлено: ' + n; ta.value = '';
   };
   show(h('h1', null, 'Импорт / копия'),
@@ -194,6 +195,7 @@ function next() {
     speak(c.sr);
   };
   const box = h('div', { class: 'card' });
+  if (c.em) box.append(h('div', { class: 'emb' }, c.em));
   const head = [progress()];
   const optBtns = (correct, label, opts) => shuffle(opts).map(o => h('button', { class: 'opt', onclick: ev => { ev.target.style.borderColor = o === correct ? 'var(--ok)' : 'var(--bad)'; result(o === correct); } }, label(o)));
   if (type === 'choice') {

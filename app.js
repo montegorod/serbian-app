@@ -146,7 +146,7 @@ function listView() {
     h('div', { class: 'em' }, c.em || ''), h('div', null, h('div', null, c.sr), h('div', { class: 'mut' }, c.ru)),
     h('button', { class: 'small sec', onclick: () => speak(c.sr) }, '🔊'),
     h('button', { class: 'small sec', onclick: () => addView(c.id) }, '✏️'),
-    h('button', { class: 'small sec', onclick: () => { if (confirm('Удалить фразу?')) { S.cards = S.cards.filter(x => x !== c); save(); listView(); } } }, '🗑'))) : [h('div', { class: 'mut' }, 'Пока пусто.')];
+    h('button', { class: 'small sec', onclick: () => { if (confirm('Удалить фразу?')) { (S.deleted = S.deleted || []).push(norm(c.sr)); S.cards = S.cards.filter(x => x !== c); save(); listView(); } } }, '🗑'))) : [h('div', { class: 'mut' }, 'Пока пусто.')];
   show(h('h1', null, 'Все фразы'), h('div', { class: 'card' }, items), h('button', { class: 'sec', onclick: home }, 'Назад'));
 }
 function ioView() {
@@ -256,6 +256,23 @@ function next() {
   show(...head, box, h('button', { class: 'sec', onclick: home }, 'Закончить'));
 }
 
+// фразы из общего файла phrases.json: добавляются сами; удалённые тобой не возвращаются
+async function syncPhrases() {
+  try {
+    const r = await fetch('phrases.json?' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const list = await r.json(); let n = 0; S.deleted = S.deleted || [];
+    for (const p of list) {
+      if (!p.sr || !p.ru) continue;
+      const k = norm(p.sr); if (S.deleted.includes(k)) continue;
+      const old = S.cards.find(c => norm(c.sr) === k);
+      if (old) { if (!old.em && p.em) { old.em = p.em; n++; } }
+      else { S.cards.push({ id: uid(), sr: p.sr, ru: p.ru, em: p.em || guessEmoji(p.sr, p.ru), box: 0, due: 0, ok: 0, bad: 0 }); n++; }
+    }
+    if (n) { fillEmoji(); save(); if (document.querySelector('.stats')) home(); }
+  } catch (e) {}
+}
 fillEmoji();
 home();
+syncPhrases();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

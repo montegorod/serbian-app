@@ -44,6 +44,34 @@ function sim(a, b) {
   return 1 - p[n] / Math.max(m, n);
 }
 
+
+// ---------- автоматический подбор эмодзи по словам ----------
+const EMO = [
+ [['kaf','кофе','espreso','kapu'],'☕'],[['mlijek','mlek','молок'],'🥛'],[['hljeb','hleb','хлеб','pekar','пекар'],'🍞'],
+ [['voda','vode','vodu','вод'],'💧'],[['pivo','пиво'],'🍺'],[['vino','вино'],'🍷'],[['sir ','сыр'],'🧀'],[['meso','мяс'],'🥩'],
+ [['riba','ribe','рыб'],'🐟'],[['jaj','яйц'],'🥚'],[['jabuk','voće','voce','яблок','фрукт'],'🍎'],[['sok','сок'],'🧃'],[['čaj','caj','чай'],'🍵'],[['supa','суп'],'🍲'],
+ [['kartic','карт'],'💳'],[['gotovin','novac','наличн','деньг'],'💵'],
+ [['jeftin','dešev','desev','popust','скидк','дешев'],'🏷️'],[['košta','kosta','cijen','cen','стоит','цен','eur','евро','koliko'],'💶'],
+ [['kesa','пакет'],'🛍️'],[['račun','racun','счёт','счет','чек'],'🧾'],[['jelovnik','меню'],'📋'],[['slobodan sto','sto ','stol','столик','стол'],'🪑'],
+ [['preporuč','preporuc','порекоменд'],'🤔'],[['hvala','спасиб','odlič','odlic','отличн'],'🙏'],
+ [['dobar dan','dobro jutro','zdravo','добрый','здравств','привет','jutro','утр'],'👋'],[['doviđ','dovid','ćao','cao','свидан','пока'],'👋'],
+ [['izvin','oprost','извин','prostite'],'🙏'],[['gdje','gde ','где'],'📍'],[['autobus','автобус'],'🚌'],[['taksi','такси'],'🚕'],[['voz','poезд','поезд'],'🚆'],
+ [['apotek','аптек'],'💊'],[['ljekar','doktor','врач','boli','болит','bolnic'],'🩺'],[['hotel','soba','номер','отел'],'🏨'],
+ [['plaž','plaz','пляж'],'🏖️'],[['more','море'],'🌊'],[['auto','машин'],'🚗'],[['benzin','бензин'],'⛽'],[['telefon','телефон'],'📱'],
+ [['vrijeme','vreme','погод','kiš','dožd','дожд'],'🌦️'],[['kuć','kuc','dom','дом'],'🏠'],[['porodic','семь'],'👪'],[['posao','работ'],'💼'],
+ [['razumij','razumem','понима','govor','говор'],'🗣️'],[['sporije','polako','медленн'],'🐢'],[['pomoć','pomoc','помо'],'🆘'],[['toalet','туалет'],'🚻'],
+ [['restoran','jelo','ručak','rucak','večer','ресторан','еда','обед','ужин'],'🍽️'],[['sjedi','sjest','сесть','садит'],'🪑']
+].map(([k, e]) => [k.map(x => norm(x)), e]);
+function guessEmoji(sr, ru) {
+  const t = ' ' + norm(sr + ' ' + ru) + ' ';
+  for (const [keys, e] of EMO) for (const k of keys) {
+    if (!k) continue;
+    if (k.includes(' ') ? t.includes(' ' + k.trim()) : t.includes(' ' + k)) return e;
+  }
+  return '';
+}
+function fillEmoji() { let ch = false; for (const c of S.cards) if (!c.em && !c.noEm) { const e = guessEmoji(c.sr, c.ru); if (e) { c.em = e; ch = true; } } if (ch) save(); }
+
 // ---------- озвучка и распознавание ----------
 function pickVoice() {
   const v = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
@@ -100,13 +128,13 @@ function addView(editId) {
   const ed = typeof editId === 'string' ? S.cards.find(c => c.id === editId) : null;
   const sr = h('input', { placeholder: 'По-сербски (латиницей)', value: ed ? ed.sr : '', autocapitalize: 'off' });
   const ru = h('input', { placeholder: 'По-русски', value: ed ? ed.ru : '' });
-  const em = h('input', { placeholder: 'Эмодзи-картинка (не обязательно)', value: ed ? (ed.em || '') : '' });
+  const em = h('input', { placeholder: 'Эмодзи (не обязательно, подберу сам)', value: ed ? (ed.em || '') : '' });
   const msg = h('div', { class: 'mut' });
   const go = () => {
     const a = sr.value.trim(), b = ru.value.trim();
     if (!a || !b) { msg.textContent = 'Заполни оба поля.'; return; }
-    if (ed) { ed.sr = a; ed.ru = b; ed.em = em.value.trim(); save(); return listView(); }
-    S.cards.push({ id: uid(), sr: a, ru: b, em: em.value.trim(), box: 0, due: 0, ok: 0, bad: 0 }); save();
+    if (ed) { ed.sr = a; ed.ru = b; ed.em = em.value.trim(); ed.noEm = !ed.em; if (!ed.em) { ed.em = guessEmoji(a, b); ed.noEm = false; } save(); return listView(); }
+    S.cards.push({ id: uid(), sr: a, ru: b, em: em.value.trim() || guessEmoji(a, b), box: 0, due: 0, ok: 0, bad: 0 }); save();
     sr.value = ''; ru.value = ''; em.value = ''; msg.textContent = '✓ Добавлено (' + S.cards.length + ')'; sr.focus();
   };
   show(h('h1', null, ed ? 'Изменить фразу' : 'Новая фраза'),
@@ -131,7 +159,7 @@ function ioView() {
     try { const j = JSON.parse(t); list = (Array.isArray(j) ? j : j.cards || []).map(x => [x.sr, x.ru, x.em]); }
     catch (e) { list = t.split('\n').map(l => l.split('|').map(s => s.trim())).filter(p => p.length >= 2 && p[0] && p[1]); }
     let n = 0;
-    for (const [a, b, e] of list) { const old = S.cards.find(c => norm(c.sr) === norm(a)); if (old) { if (e && !old.em) { old.em = e; n++; } } else if (a && b) { S.cards.push({ id: uid(), sr: a, ru: b, em: e || '', box: 0, due: 0, ok: 0, bad: 0 }); n++; } }
+    for (const [a, b, e] of list) { const old = S.cards.find(c => norm(c.sr) === norm(a)); if (old) { if (!old.em) { const g = e || guessEmoji(old.sr, old.ru); if (g) { old.em = g; n++; } } } else if (a && b) { S.cards.push({ id: uid(), sr: a, ru: b, em: e || guessEmoji(a, b), box: 0, due: 0, ok: 0, bad: 0 }); n++; } }
     save(); msg.textContent = 'Добавлено: ' + n; ta.value = '';
   };
   show(h('h1', null, 'Импорт / копия'),
@@ -228,5 +256,6 @@ function next() {
   show(...head, box, h('button', { class: 'sec', onclick: home }, 'Закончить'));
 }
 
+fillEmoji();
 home();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

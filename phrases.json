@@ -1,11 +1,66 @@
 [
-{"sr":"Koliko košta?","ru":"Сколько стоит?"},
-{"sr":"Imate li nešto jeftinije?","ru":"Есть что-то дешевле?"},
-{"sr":"Mogu li platiti karticom?","ru":"Можно оплатить картой?"},
-{"sr":"Jednu kafu s mlijekom, molim vas.","ru":"Один кофе с молоком, пожалуйста."},
-{"sr":"Treba mi još litar mlijeka, molim vas.","ru":"Мне нужен ещё литр молока, пожалуйста."},
-{"sr":"Imate li slobodan sto?","ru":"Есть свободный столик?"},
-{"sr":"Jelovnik, molim vas.","ru":"Меню, пожалуйста."},
-{"sr":"Šta preporučujete?","ru":"Что порекомендуете?"},
-{"sr":"Hvala, bilo je odlično.","ru":"Спасибо, было отлично."}
+{
+"sr": "Koliko košta?",
+"ru": "Сколько стоит?"
+},
+{
+"sr": "Imate li nešto jeftinije?",
+"ru": "Есть что-то дешевле?"
+},
+{
+"sr": "Mogu li platiti karticom?",
+"ru": "Можно оплатить картой?"
+},
+{
+"sr": "Jednu kafu s mlijekom, molim vas.",
+"ru": "Один кофе с молоком, пожалуйста."
+},
+{
+"sr": "Treba mi još litar mlijeka, molim vas.",
+"ru": "Мне нужен ещё литр молока, пожалуйста."
+},
+{
+"sr": "Imate li slobodan sto?",
+"ru": "Есть свободный столик?"
+},
+{
+"sr": "Jelovnik, molim vas.",
+"ru": "Меню, пожалуйста."
+},
+{
+"sr": "Šta preporučujete?",
+"ru": "Что порекомендуете?"
+},
+{
+"sr": "Hvala, bilo je odlično.",
+"ru": "Спасибо, было отлично."
+},
+{
+"sr": "Kako se zovete?",
+"ru": "Как вас зовут?"
+},
+{
+"sr": "Zovem se Igor.",
+"ru": "Меня зовут Игорь."
+},
+{
+"sr": "Drago mi je.",
+"ru": "Приятно познакомиться."
+},
+{
+"sr": "Ja sam iz Rusije.",
+"ru": "Я из России."
+},
+{
+"sr": "Živim ovdje u Crnoj Gori.",
+"ru": "Я живу здесь, в Черногории."
+},
+{
+"sr": "Još učim, govorite polako, molim vas.",
+"ru": "Я ещё учу, говорите медленно, пожалуйста."
+},
+{
+"sr": "Možete li ponoviti?",
+"ru": "Можете повторить?"
+}
 ]

@@ -62,5 +62,53 @@
 {
 "sr": "Možete li ponoviti?",
 "ru": "Можете повторить?"
+},
+{
+"sr": "Gdje je najbliža benzinska pumpa?",
+"ru": "Где ближайшая заправка?"
+},
+{
+"sr": "Pun rezervoar, molim vas.",
+"ru": "Полный бак, пожалуйста."
+},
+{
+"sr": "Sipajte mi benzina za trideset eura.",
+"ru": "Залейте мне бензина на тридцать евро."
+},
+{
+"sr": "Dizel, molim vas.",
+"ru": "Дизель, пожалуйста."
+},
+{
+"sr": "Možete li provjeriti ulje i pritisak u gumama?",
+"ru": "Можете проверить масло и давление в шинах?"
+},
+{
+"sr": "Pokvario mi se auto.",
+"ru": "У меня сломалась машина."
+},
+{
+"sr": "Gdje je najbliži vulkanizer?",
+"ru": "Где ближайший шиномонтаж?"
+},
+{
+"sr": "Treba mi ulje za motor.",
+"ru": "Мне нужно масло для мотоцикла."
+},
+{
+"sr": "Mogu li ovdje parkirati?",
+"ru": "Можно здесь припарковаться?"
+},
+{
+"sr": "Treba mi tečnost za pranje vjetrobrana.",
+"ru": "Мне нужна жидкость для омывания лобового стекла."
+},
+{
+"sr": "Imate li zimsku tečnost za vjetrobran?",
+"ru": "Есть зимняя жидкость для лобового стекла?"
+},
+{
+"sr": "Treba mi ljetna tečnost za vjetrobran.",
+"ru": "Мне нужна летняя жидкость для лобового стекла."
 }
 ]

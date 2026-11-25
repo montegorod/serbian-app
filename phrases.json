@@ -110,5 +110,45 @@
 {
 "sr": "Treba mi ljetna tečnost za vjetrobran.",
 "ru": "Мне нужна летняя жидкость для лобового стекла."
+},
+{
+"sr": "Gdje je najbliža apoteka?",
+"ru": "Где ближайшая аптека?"
+},
+{
+"sr": "Boli me glava.",
+"ru": "У меня болит голова."
+},
+{
+"sr": "Imate li nešto za glavobolju?",
+"ru": "Есть что-то от головной боли?"
+},
+{
+"sr": "Imate li nešto za prehladu?",
+"ru": "Есть что-то от простуды?"
+},
+{
+"sr": "Imam temperaturu.",
+"ru": "У меня температура."
+},
+{
+"sr": "Treba li mi recept?",
+"ru": "Мне нужен рецепт?"
+},
+{
+"sr": "Kako se ovo uzima?",
+"ru": "Как это принимать?"
+},
+{
+"sr": "Koliko puta dnevno?",
+"ru": "Сколько раз в день?"
+},
+{
+"sr": "Imam alergiju.",
+"ru": "У меня аллергия."
+},
+{
+"sr": "Brzo ozdravite!",
+"ru": "Выздоравливайте скорее!"
 }
 ]
